@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# Local data & secrets — NEVER commit
+# ---------------------------------------------------------------------------
+# The database holds every transaction you have ever imported.
+finance.db
+finance.db-wal
+finance.db-shm
+finance.db.bak-*
+*.db
+*.db.bak-*
+
+# SimpleFIN access URL is a bearer credential. Use config.example.json instead.
+config.json
+
+# Per-user account registry (SimpleFIN account ids, card last-4s).
+accounts.local.json
+
+# Your own categorization ruleset. rules.py ships a generic starter set;
+# anything personal (local merchants, names, property identifiers) lives here.
+app/rules_local.py
+
+# Raw statement downloads and the historical workbook.
+*.xlsx
+*.xls
+*.csv
+*.CSV
+*.ofx
+*.qfx
+*.pdf
+/20[0-9][0-9]/
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# ---------------------------------------------------------------------------
+# Editors / OS
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Test fixtures are the one place sample CSVs are allowed (any depth).
+!tests/fixtures/**
+!tests/fixtures/**/*.csv

@@ -1,0 +1,79 @@
+{
+  "citi": {
+    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "account_name": "Your account name exactly as SimpleFIN reports it",
+    "aliases": [
+      "Older name used by a previous import",
+      "Newer Name%"
+    ],
+    "source": "citi_csv",
+    "file": "Name of the export file (or folder) inside your statements dir",
+    "parser": "parse_citi"
+  },
+  "chase": {
+    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "account_name": "Your account name exactly as SimpleFIN reports it",
+    "aliases": [
+      "Older name used by a previous import",
+      "Newer Name%"
+    ],
+    "source": "chase_csv",
+    "file": "Name of the export file (or folder) inside your statements dir",
+    "parser": "parse_chase"
+  },
+  "capitalone": {
+    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "account_name": "Your account name exactly as SimpleFIN reports it",
+    "aliases": [
+      "Older name used by a previous import",
+      "Newer Name%"
+    ],
+    "source": "capitalone_csv",
+    "file": "Name of the export file (or folder) inside your statements dir",
+    "parser": "parse_capital_one"
+  },
+  "bofacard": {
+    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "account_name": "Your account name exactly as SimpleFIN reports it",
+    "aliases": [
+      "Older name used by a previous import",
+      "Newer Name%"
+    ],
+    "source": "bofacard_csv",
+    "file": "Name of the export file (or folder) inside your statements dir",
+    "parser": "parse_bofa_card_dir"
+  },
+  "amex": {
+    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "account_name": "Your account name exactly as SimpleFIN reports it",
+    "aliases": [
+      "Older name used by a previous import",
+      "Newer Name%"
+    ],
+    "source": "amex_xlsx",
+    "file": "Name of the export file (or folder) inside your statements dir",
+    "parser": "parse_amex_xlsx"
+  },
+  "paypal": {
+    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "account_name": "Your account name exactly as SimpleFIN reports it",
+    "aliases": [
+      "Older name used by a previous import",
+      "Newer Name%"
+    ],
+    "source": "paypal_pdf",
+    "file": "Name of the export file (or folder) inside your statements dir",
+    "parser": "parse_paypal_pdfs"
+  },
+  "bofachecking": {
+    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "account_name": "Your account name exactly as SimpleFIN reports it",
+    "aliases": [
+      "Older name used by a previous import",
+      "Newer Name%"
+    ],
+    "source": "bofa_csv",
+    "file": "Name of the export file (or folder) inside your statements dir",
+    "parser": "parse_bofa_checking"
+  }
+}

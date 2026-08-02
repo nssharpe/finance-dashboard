@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finance Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+
+<!-- ======================================================
+     Top bar
+     ====================================================== -->
+<header id="topbar">
+  <h1>Finance Dashboard</h1>
+  <div id="topbar-right">
+    <span id="status-dot" title="Connection status"></span>
+    <span id="last-updated"></span>
+    <button id="btn-refresh" class="btn btn-ghost btn-sm">
+      <span id="refresh-spinner" class="spinner" style="display:none"></span>
+      Refresh
+    </button>
+    <button id="btn-settings" class="btn btn-ghost btn-sm" title="Settings">&#9881;</button>
+  </div>
+</header>
+
+<!-- ======================================================
+     Setup / connection banner
+     ====================================================== -->
+<div id="setup-banner" class="hidden">
+  <div>
+    <p><strong>Connect your accounts via SimpleFIN</strong></p>
+    <p style="font-size:.82rem;color:var(--gray-500);margin-top:.2rem">
+      Paste your Setup Token below, then click Connect.
+    </p>
+  </div>
+  <input id="setup-token-input" type="text" placeholder="Setup Token (paste here)" autocomplete="off" />
+  <button id="btn-connect" class="btn btn-primary btn-sm">Connect</button>
+  <button id="btn-import-history" class="btn btn-ghost btn-sm" title="Import historical data from SimpleFIN">
+    <span id="import-spinner" class="spinner" style="display:none"></span>
+    Import historical data
+  </button>
+  <button id="banner-dismiss" title="Dismiss">&#x2715;</button>
+
+  <!-- CSV Import affordance (#1) -->
+  <div id="csv-import-section">
+    <div class="csv-import-label">Import CSV</div>
+    <div class="csv-import-row">
+      <label class="csv-file-label">
+        PayPal
+        <input type="file" class="csv-file-input" data-source="paypal" accept=".csv" />
+      </label>
+      <button class="btn btn-ghost btn-sm csv-import-btn" data-source="paypal">
+        <span class="csv-spinner spinner" style="display:none"></span>
+        Import
+      </button>
+    </div>
+    <div class="csv-import-row">
+      <label class="csv-file-label">
+        Venmo
+        <input type="file" class="csv-file-input" data-source="venmo" accept=".csv" />
+      </label>
+      <button class="btn btn-ghost btn-sm csv-import-btn" data-source="venmo">
+        <span class="csv-spinner spinner" style="display:none"></span>
+        Import
+      </button>
+    </div>
+    <div class="csv-import-row">
+      <label class="csv-file-label">
+        Amazon
+        <input type="file" class="csv-file-input" data-source="amazon" accept=".csv" />
+      </label>
+      <button class="btn btn-ghost btn-sm csv-import-btn" data-source="amazon">
+        <span class="csv-spinner spinner" style="display:none"></span>
+        Import
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================
+     Tab nav
+     ====================================================== -->
+<nav id="tabs">
+  <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+  <button class="tab-btn" data-tab="transactions">Transactions</button>
+  <button class="tab-btn" data-tab="analysis">Analysis</button>
+  <button class="tab-btn" data-tab="insights">Insights</button>
+</nav>
+
+<!-- ======================================================
+     Toast container
+     ====================================================== -->
+<div id="toast-container"></div>
+
+<!-- ======================================================
+     Main content
+     ====================================================== -->
+<main id="main">
+
+  <!-- ---- Tab: Dashboard ---- -->
+  <section id="tab-dashboard" class="tab-panel active">
+
+    <!-- #6 Red alert banner -->
+    <div id="dashboard-alert"></div>
+
+    <div id="net-worth-block" class="card">
+      <div id="net-worth-label">Net Worth</div>
+      <div id="net-worth-value">—</div>
+      <div id="net-worth-refresh" style="font-size:.78rem;color:var(--gray-400);margin-top:.3rem"></div>
+
+      <!-- #3 Net-worth chart + range controls -->
+      <div id="networth-chart-section">
+        <div id="networth-range-row">
+          <button class="btn btn-ghost btn-sm nw-range-btn active" data-range="all">All</button>
+          <button class="btn btn-ghost btn-sm nw-range-btn" data-range="5y">5Y</button>
+          <button class="btn btn-ghost btn-sm nw-range-btn" data-range="1y">1Y</button>
+        </div>
+        <div id="networth-chart-wrap">
+          <canvas id="networth-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div id="account-groups" class="account-groups" style="margin-top:1.25rem">
+      <div class="empty-state">Loading accounts…</div>
+    </div>
+
+  </section>
+
+  <!-- ---- Tab: Transactions ---- -->
+  <section id="tab-transactions" class="tab-panel">
+
+    <div class="card">
+      <div class="controls-row">
+        <label>From
+          <input type="date" id="txn-start" style="margin-left:.35rem" />
+        </label>
+        <label>To
+          <input type="date" id="txn-end" style="margin-left:.35rem" />
+        </label>
+        <select id="txn-account">
+          <option value="">All accounts</option>
+        </select>
+        <select id="txn-category">
+          <option value="">All categories</option>
+        </select>
+        <input type="text" id="txn-search" placeholder="Search descriptions/amounts…" />
+        <select id="txn-sort">
+          <option value="date_desc">Date ↓</option>
+          <option value="date_asc">Date ↑</option>
+          <option value="amount_desc">Amount ↓</option>
+          <option value="amount_asc">Amount ↑</option>
+        </select>
+        <button id="btn-txn-refresh" class="btn btn-ghost btn-sm">Search</button>
+      </div>
+
+      <!-- Bulk-recategorize bar — shown only when rows are selected -->
+      <div id="txn-bulk-bar" style="display:none">
+        <span class="bulk-bar-label">Recategorize Multiple Transactions as:</span>
+        <select id="txn-bulk-category">
+          <option value="" disabled selected>Choose category…</option>
+        </select>
+        <button id="btn-bulk-apply" class="btn btn-primary btn-sm" disabled>Apply</button>
+        <span id="txn-bulk-count" class="bulk-bar-count"></span>
+        <button id="btn-bulk-clear" class="btn btn-ghost btn-sm">Clear</button>
+      </div>
+
+      <div id="txn-summary" class="result-summary"></div>
+
+      <div class="table-wrap">
+        <table id="txn-table" class="txn-grid selectable">
+          <thead>
+            <tr>
+              <th class="cb-col"><input type="checkbox" id="txn-select-all" title="Select all on this page" /></th>
+              <th>Date</th>
+              <th>Account</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th class="num">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="txn-tbody">
+            <tr><td colspan="6" class="empty-state">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination">
+        <button id="btn-prev" class="btn btn-ghost btn-sm" disabled>&#8592; Prev</button>
+        <span id="pagination-info"></span>
+        <button id="btn-next" class="btn btn-ghost btn-sm" disabled>Next &#8594;</button>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ---- Tab: Insights ---- -->
+  <section id="tab-insights" class="tab-panel">
+
+    <!-- Subscriptions -->
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="insights-section-header">
+        <div class="section-title" style="margin-bottom:0">Subscriptions</div>
+        <div id="subscriptions-summary" class="insights-summary"></div>
+      </div>
+      <div id="subscriptions-body">
+        <div class="empty-state"><span class="spinner"></span></div>
+      </div>
+    </div>
+
+    <!-- Anomaly Digest -->
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="insights-section-header">
+        <div class="section-title" style="margin-bottom:0">What Changed · Last 30 Days</div>
+        <div id="anomalies-period" class="insights-summary"></div>
+      </div>
+      <div id="anomalies-body">
+        <div class="empty-state"><span class="spinner"></span></div>
+      </div>
+    </div>
+
+    <!-- Merchant Rules -->
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="insights-section-header">
+        <div class="section-title" style="margin-bottom:0">Merchant Rules</div>
+        <div id="rules-summary" class="insights-summary"></div>
+      </div>
+      <p class="muted" style="font-size:.82rem;margin:0 0 .75rem">
+        Rules rename and recategorize every transaction whose original label contains
+        the pattern — past and future. To add one, click
+        <span class="rule-chip-inline">⚡</span> on any transaction.
+      </p>
+      <div id="rules-body">
+        <div class="empty-state"><span class="spinner"></span></div>
+      </div>
+    </div>
+
+    <!-- Top Merchants -->
+    <div class="card">
+      <div class="insights-section-header">
+        <div class="section-title" style="margin-bottom:0">Top Merchants</div>
+        <div class="insights-controls">
+          <input type="date" id="merchants-start" placeholder="From" />
+          <input type="date" id="merchants-end" placeholder="To" />
+          <select id="merchants-category">
+            <option value="">All categories</option>
+          </select>
+          <button id="btn-merchants-load" class="btn btn-ghost btn-sm">Load</button>
+        </div>
+      </div>
+      <div id="merchants-body">
+        <div class="empty-state"><span class="spinner"></span></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ---- Tab: Analysis ---- -->
+  <section id="tab-analysis" class="tab-panel">
+
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="analysis-controls">
+        <label>From year
+          <input type="number" id="analysis-start-year" value="2013" min="2010" max="2030" style="margin-left:.4rem" />
+        </label>
+        <label>To year
+          <input type="number" id="analysis-end-year" value="2025" min="2010" max="2030" style="margin-left:.4rem" />
+        </label>
+        <div style="display:flex;gap:.4rem;align-items:center;margin-left:.5rem">
+          <button class="btn btn-ghost btn-sm chart-mode-btn active" data-mode="total">Total by year</button>
+          <button class="btn btn-ghost btn-sm chart-mode-btn" data-mode="category">By category</button>
+        </div>
+        <button id="btn-analysis-load" class="btn btn-primary btn-sm" style="margin-left:auto">Load</button>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas id="analysis-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Year-over-Year Breakdown</div>
+      <div id="analysis-table-wrap">
+        <div class="empty-state">Load analysis to see data.</div>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- ======================================================
+     #5 Account detail view (hidden by default, sibling of main)
+     ====================================================== -->
+<section id="account-detail" style="display:none">
+  <div id="account-detail-inner">
+    <div id="account-detail-topbar">
+      <button id="btn-account-back" class="btn btn-ghost btn-sm">&#8592; Back</button>
+      <div id="account-detail-header">
+        <span id="account-detail-name"></span>
+        <span id="account-detail-balance"></span>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:1.25rem">
+      <div class="controls-row" id="account-detail-range-row">
+        <label>From <input type="date" id="acct-detail-start" style="margin-left:.35rem" /></label>
+        <label>To <input type="date" id="acct-detail-end" style="margin-left:.35rem" /></label>
+      </div>
+      <div id="account-chart-wrap">
+        <canvas id="account-chart"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="section-title">Transactions</div>
+      <div class="table-wrap">
+        <table id="account-detail-txn-table" class="txn-grid">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Account</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th class="num">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="account-detail-txns">
+            <tr><td colspan="5" class="empty-state">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================================================
+     Footer with hidden re-import affordance
+     ====================================================== -->
+<footer>
+  <a id="footer-reimport" title="Re-import historical data from SimpleFIN">Re-import history</a>
+  &nbsp;·&nbsp; Finance Dashboard
+</footer>
+
+<!-- ======================================================
+     Merchant-rule dialog
+     ====================================================== -->
+<div id="rule-modal" class="modal-backdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="rule-modal-title">
+    <h3 id="rule-modal-title">Create merchant rule</h3>
+
+    <label class="modal-label" for="rule-pattern">
+      Match transactions containing
+      <span class="modal-hint">shorten this to match more, e.g. just the merchant name</span>
+    </label>
+    <input type="text" id="rule-pattern" class="modal-input" autocomplete="off" />
+    <div id="rule-preview" class="rule-preview"></div>
+
+    <label class="modal-label" for="rule-description">Rename them to</label>
+    <input type="text" id="rule-description" class="modal-input"
+           placeholder="leave blank to keep the original label" autocomplete="off" />
+
+    <label class="modal-label" for="rule-category">Category</label>
+    <select id="rule-category" class="modal-input"></select>
+
+    <div class="modal-actions">
+      <button id="rule-cancel" class="btn btn-ghost">Cancel</button>
+      <button id="rule-save" class="btn btn-primary">Create rule</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- App logic -->
+<script src="/static/app.js"></script>
+<!-- Merchant rules (depends on helpers in app.js) -->
+<script src="/static/rules.js"></script>
+</body>
+</html>
