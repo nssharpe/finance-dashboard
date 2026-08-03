@@ -3,9 +3,9 @@
 Two things here are easy to break and hard to notice:
 
 * **Signs.** The database stores negative = money out for every account, but the
-  exports disagree — Chase and BofA arrive pre-signed, Citi and Capital One split
-  Debit/Credit, and Amex reports a purchase as a *positive* number. Flip one and
-  a year of spending silently becomes income.
+  export shapes disagree — some arrive pre-signed, some split Debit/Credit across
+  two columns, and the XLSX shape reports a purchase as a *positive* number. Flip
+  one and a year of spending silently becomes income.
 * **De-dup.** A statement legitimately repeats the same charge on the same day,
   and ``db.synthetic_id`` hashes only (date, account, description, amount) — so
   without an occurrence salt those rows collapse into one and money disappears.
@@ -29,38 +29,38 @@ def _by_desc(rows):
 # Sign conventions
 # ---------------------------------------------------------------------------
 
-def test_citi_debit_is_negative_credit_is_positive():
-    rows = _by_desc(st.parse_citi(str(FIXTURES / "citi.csv")))
+def test_debit_is_negative_credit_is_positive():
+    rows = _by_desc(st.parse_debit_credit_csv(str(FIXTURES / "debit_credit.csv")))
     assert rows["COFFEE SHOP MAIN ST"]["amount"] == -12.50
     assert rows["AUTOPAY THANK YOU"]["amount"] == 400.00
 
 
-def test_chase_amounts_pass_through_already_signed():
-    rows = _by_desc(st.parse_chase(str(FIXTURES / "chase.csv")))
+def test_signed_amounts_pass_through():
+    rows = _by_desc(st.parse_signed_amount_csv(str(FIXTURES / "signed_amount.csv")))
     assert rows["BOOKSTORE DOWNTOWN"]["amount"] == -44.45
     assert rows["AUTOMATIC PAYMENT - THANK"]["amount"] == 400.00
 
 
-def test_capital_one_debit_is_negative_credit_is_positive():
-    rows = _by_desc(st.parse_capital_one(str(FIXTURES / "capitalone.csv")))
+def test_debit_credit_handles_alternate_date_headers():
+    rows = _by_desc(st.parse_debit_credit_csv(str(FIXTURES / "debit_credit_alt_headers.csv")))
     assert rows["LOCAL BISTRO"]["amount"] == -63.03
-    assert rows["CAPITAL ONE AUTOPAY PYMT"]["amount"] == 512.06
+    assert rows["AUTOPAY PAYMENT RECEIVED"]["amount"] == 512.06
 
 
-def test_capital_one_keeps_both_cards_on_the_account():
-    """1111 and 2222 are two cards on one account — neither may be filtered."""
-    rows = st.parse_capital_one(str(FIXTURES / "capitalone.csv"))
+def test_all_card_numbers_on_an_account_are_kept():
+    """Two card numbers, one account — neither may be filtered out."""
+    rows = st.parse_debit_credit_csv(str(FIXTURES / "debit_credit_alt_headers.csv"))
     assert len(rows) == 3
 
 
-def test_bofa_card_amounts_pass_through_already_signed():
-    rows = _by_desc(st.parse_bofa_card_dir(str(FIXTURES / "bofacard")))
+def test_monthly_dir_amounts_pass_through_already_signed():
+    rows = _by_desc(st.parse_monthly_csv_dir(str(FIXTURES / "monthly_dir")))
     assert rows["AIRLINE TICKET"]["amount"] == -372.59
     assert rows["PAYMENT - THANK YOU"]["amount"] == 25.50
 
 
 def test_source_category_is_captured_when_the_export_has_one():
-    rows = _by_desc(st.parse_chase(str(FIXTURES / "chase.csv")))
+    rows = _by_desc(st.parse_signed_amount_csv(str(FIXTURES / "signed_amount.csv")))
     assert rows["CORNER MARKET"]["source_category"] == "Groceries"
 
 
@@ -68,9 +68,9 @@ def test_source_category_is_captured_when_the_export_has_one():
 # De-duplication
 # ---------------------------------------------------------------------------
 
-def test_bofa_card_collapses_the_currenttransaction_overlap():
-    """currentTransaction repeats the newest month; REF002 appears in both."""
-    rows = st.parse_bofa_card_dir(str(FIXTURES / "bofacard"))
+def test_monthly_dir_collapses_the_pending_feed_overlap():
+    """The pending feed repeats the newest month; REF002 appears in both."""
+    rows = st.parse_monthly_csv_dir(str(FIXTURES / "monthly_dir"))
     assert len(rows) == 3  # not 4
     assert sum(1 for r in rows if r["description"] == "AIRLINE TICKET") == 1
 
@@ -108,7 +108,7 @@ def test_insert_is_idempotent(conn):
 
 
 def test_ids_do_not_depend_on_input_order(conn):
-    """A refreshed currentTransaction file reorders rows; ids must not move."""
+    """A refreshed pending-transactions file reorders rows; ids must not move."""
     rows = [
         {"posted": "2026-03-09", "description": "CHARGE A", "amount": -30.0},
         {"posted": "2026-03-09", "description": "CHARGE A", "amount": -30.0},

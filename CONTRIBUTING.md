@@ -38,8 +38,8 @@ failures you don't notice until your year-end numbers are wrong:
 - **Rule precedence** — regex ruleset < merchant rule < manual override, and
   clean reversion when a rule is edited or deleted.
 - **Sign conventions** — every institution disagrees about what a purchase looks
-  like. Amex reports one as a positive number. Flip a sign and a year of
-  spending silently becomes income.
+  like — at least one XLSX shape reports a purchase as a positive number. Flip a
+  sign and a year of spending silently becomes income.
 - **De-duplication** — `db.synthetic_id` hashes `(date, account, description,
   amount)`, so a statement's genuinely repeated same-day charges collapse into
   one row unless the importer salts them by occurrence.
@@ -48,14 +48,18 @@ Please add a test alongside any parser or rule change.
 
 ## Adding a statement parser
 
-1. Write `parse_<institution>(path) -> list[dict]` in `app/importers/statements.py`,
-   returning `{posted, description, amount}` with **negative = money out**, plus
-   `source_category` if the export has a category column.
-2. Register it in the `PARSERS` dict.
-3. Add a **synthetic** fixture under `tests/fixtures/` and a test asserting the
+1. **Check whether an existing shape already fits.** Parsers are named after the
+   export shape, not the bank, and most exports match one already — in which case
+   you only need a config entry, not code.
+2. If none fit, write `parse_<shape>(path) -> list[dict]` in
+   `app/importers/statements.py`, returning `{posted, description, amount}` with
+   **negative = money out**, plus `source_category` if the export has a category
+   column.
+3. Register it in the `PARSERS` dict.
+4. Add a **synthetic** fixture under `tests/fixtures/` and a test asserting the
    sign of both a purchase and a payment. Getting this backwards is the single
    most common bug in this area.
-4. Document the format in the README table.
+5. Document the shape in the README table.
 
 Verify against real data with `--dry-run` before opening the PR, and say in the
 description what match rate you saw against an overlapping window.

@@ -8,7 +8,10 @@
 // ============================================================
 // Config
 // ============================================================
-const API = '';          // same-origin; prefix routes with /api/...
+const API = '';
+
+// Dashboard warns when cash minus credit-card balances drops below this.
+const CREDIT_ALERT_THRESHOLD = 5000;          // same-origin; prefix routes with /api/...
 const TXN_LIMIT = 100;  // rows per page
 
 // Palette for Analysis chart — 12 distinct colors
@@ -557,26 +560,23 @@ function renderDashboard(data) {
     return;
   }
 
-  // #6 Red alert banner logic
-  let bofaBalance = null;
+  // Warn when credit-card balances approach the cash available to pay them.
+  // Compares the credit total against ALL depository accounts rather than one
+  // nominated "pay-from" account, so it works without any configuration.
+  let cashTotal = 0;
   let creditTotal = 0;
   for (const group of data.groups) {
-    if (group.type === 'depository') {
-      for (const acct of (group.accounts || [])) {
-        if (acct.name && acct.name.includes('Adv Plus Banking')) {
-          bofaBalance = acct.balance;
-        }
-      }
-    }
-    if (group.type === 'credit') {
-      creditTotal = Math.abs(group.total || 0);
-    }
+    if (group.type === 'depository') cashTotal = group.total || 0;
+    if (group.type === 'credit')     creditTotal = Math.abs(group.total || 0);
   }
-  if (bofaBalance !== null && (bofaBalance - creditTotal) <= 5000) {
-    dashboardAlert.innerHTML = `
-      <div class="dashboard-alert-banner">
-        &#9888; Credit card balances (${fmtCurrency(creditTotal)}) are within $5k of your Bank of America pay-from balance (${fmtCurrency(bofaBalance)}).
-      </div>`;
+  if (cashTotal > 0 && (cashTotal - creditTotal) <= CREDIT_ALERT_THRESHOLD) {
+    dashboardAlert.innerHTML = '';
+    const banner = document.createElement('div');
+    banner.className = 'dashboard-alert-banner';
+    banner.textContent =
+      `⚠ Credit card balances (${fmtCurrency(creditTotal)}) are within ` +
+      `${fmtCurrency(CREDIT_ALERT_THRESHOLD)} of your total cash (${fmtCurrency(cashTotal)}).`;
+    dashboardAlert.appendChild(banner);
   } else {
     dashboardAlert.innerHTML = '';
   }

@@ -1,79 +1,59 @@
 {
-  "citi": {
+  "card_a": {
     "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "account_name": "Your account name exactly as SimpleFIN reports it",
+    "account_name": "Account name exactly as your aggregator reports it",
     "aliases": [
-      "Older name used by a previous import",
+      "Name used by an older import",
       "Newer Name%"
     ],
-    "source": "citi_csv",
-    "file": "Name of the export file (or folder) inside your statements dir",
-    "parser": "parse_citi"
+    "source": "card_a_csv",
+    "file": "card-a-export.csv",
+    "parser": "parse_debit_credit_csv"
   },
-  "chase": {
+  "card_b": {
     "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "account_name": "Your account name exactly as SimpleFIN reports it",
+    "account_name": "Account name exactly as your aggregator reports it",
     "aliases": [
-      "Older name used by a previous import",
-      "Newer Name%"
+      "Older Name%"
     ],
-    "source": "chase_csv",
-    "file": "Name of the export file (or folder) inside your statements dir",
-    "parser": "parse_chase"
+    "source": "card_b_csv",
+    "file": "card-b-export.csv",
+    "parser": "parse_signed_amount_csv"
   },
-  "capitalone": {
+  "card_c": {
     "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "account_name": "Your account name exactly as SimpleFIN reports it",
+    "account_name": "Account name exactly as your aggregator reports it",
+    "aliases": [],
+    "source": "card_c_csv",
+    "file": "folder-of-monthly-exports",
+    "parser": "parse_monthly_csv_dir"
+  },
+  "card_d": {
+    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "account_name": "Account name exactly as your aggregator reports it",
+    "aliases": [],
+    "source": "card_d_xlsx",
+    "file": "card-d-export.xlsx",
+    "parser": "parse_positive_charge_xlsx"
+  },
+  "checking": {
+    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "account_name": "Account name exactly as your aggregator reports it",
     "aliases": [
-      "Older name used by a previous import",
-      "Newer Name%"
+      "Name used by an older import"
     ],
-    "source": "capitalone_csv",
-    "file": "Name of the export file (or folder) inside your statements dir",
-    "parser": "parse_capital_one"
+    "source": "checking_csv",
+    "file": "checking-export.csv",
+    "parser": "parse_running_balance_csv"
   },
-  "bofacard": {
-    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "account_name": "Your account name exactly as SimpleFIN reports it",
+  "wallet": {
+    "account_id": "paypal_wallet",
+    "account_name": "PayPal",
     "aliases": [
-      "Older name used by a previous import",
-      "Newer Name%"
-    ],
-    "source": "bofacard_csv",
-    "file": "Name of the export file (or folder) inside your statements dir",
-    "parser": "parse_bofa_card_dir"
-  },
-  "amex": {
-    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "account_name": "Your account name exactly as SimpleFIN reports it",
-    "aliases": [
-      "Older name used by a previous import",
-      "Newer Name%"
-    ],
-    "source": "amex_xlsx",
-    "file": "Name of the export file (or folder) inside your statements dir",
-    "parser": "parse_amex_xlsx"
-  },
-  "paypal": {
-    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "account_name": "Your account name exactly as SimpleFIN reports it",
-    "aliases": [
-      "Older name used by a previous import",
-      "Newer Name%"
+      "PayPal"
     ],
     "source": "paypal_pdf",
-    "file": "Name of the export file (or folder) inside your statements dir",
+    "file": "folder-of-monthly-pdf-statements",
     "parser": "parse_paypal_pdfs"
-  },
-  "bofachecking": {
-    "account_id": "ACT-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "account_name": "Your account name exactly as SimpleFIN reports it",
-    "aliases": [
-      "Older name used by a previous import",
-      "Newer Name%"
-    ],
-    "source": "bofa_csv",
-    "file": "Name of the export file (or folder) inside your statements dir",
-    "parser": "parse_bofa_checking"
   }
 }

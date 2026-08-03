@@ -1,36 +1,39 @@
-"""Importers for downloaded 2026 credit-card / PayPal statements.
+"""Importers for downloaded bank and card statements.
 
-Companion to ``bofa_checking.py``, which handles a Bank of America *checking*
-export. This module covers the credit-card and PayPal exports listed in
-``accounts.local.json`` (copy ``accounts.example.json`` to create it):
+Parsers are organized by **export shape**, not by institution — banks disagree
+about layout, but the number of distinct shapes is small, and most exports match
+one that already exists. Which accounts you have, and which shape each one uses,
+lives in the gitignored ``accounts.local.json`` (copy ``accounts.example.json``).
 
-    Citi           CSV   Status,Date,Description,Debit,Credit
-    Chase          CSV   Transaction Date,Post Date,...,Amount,...
-    Capital One    CSV   Transaction Date,...,Card No.,...,Debit,Credit
-    Bank of America CSV  one file per month + a live currentTransaction feed
-    Amex           XLSX  header a few rows down, Amount POSITIVE = purchase
-    PayPal         PDF   monthly account statements
+    parse_debit_credit_csv      money-out and money-in in two columns
+    parse_signed_amount_csv     one Amount column, already signed
+    parse_monthly_csv_dir       a directory of monthly files + a pending feed
+    parse_positive_charge_xlsx  XLSX where a purchase is a POSITIVE number
+    parse_paypal_pdfs           PayPal monthly PDF statements
+
+``running_balance.py`` holds one more shape — a CSV carrying a running balance,
+which is worth a separate module because that column makes the import verifiable
+against the statement's own opening and closing figures.
 
 Sign convention
 ---------------
-The DB stores **negative = money out** for every account, verified against the
-existing SimpleFIN rows for each card.  Each parser normalizes to that:
-Citi/CapitalOne split Debit/Credit columns, Chase and BofA are already signed,
-and **Amex is inverted** (a purchase is a positive number in their export).
+The database stores **negative = money out** for every account. Exports disagree,
+so each parser normalizes: two-column shapes negate the debit, signed shapes pass
+through, and the XLSX shape is **inverted** and must be negated. Verify a new
+format against data you already have before trusting it.
 
 De-dup
 ------
-Same model as ``bofa_checking``: match on ``(amount, +/- 5 days)`` against every
-name the account has used, never on description, consuming each DB candidate
-once.  Where a statement's date range overlaps data you already have from
-SimpleFIN, a near-100% match rate is the proof that a parser and its sign are
-right; that overlap window is reported per account by ``--dry-run``.
+Match on ``(amount, +/- 7 days)`` against every name the account has used, never
+on description — the same transaction is described differently by different
+sources. Each existing row is consumed at most once. Where a statement overlaps
+data you already have, a near-100% match rate is the proof that a parser and its
+sign are right; that overlap window is reported per account by ``--dry-run``.
 
 Usage
 -----
-    python -m app.importers.statements <statements-dir> [--dry-run] [--only citi,amex]
+    python -m app.importers.statements <statements-dir> [--dry-run] [--only card_a]
 """
-
 from __future__ import annotations
 
 import argparse
@@ -110,11 +113,21 @@ def _clean(desc: str) -> str:
 # with amount already signed negative-is-out.
 # ---------------------------------------------------------------------------
 
-def parse_citi(path: str) -> list[dict]:
-    """Status,Date,Description,Debit,Credit — Debit is a purchase."""
+def parse_debit_credit_csv(path: str) -> list[dict]:
+    """CSV with money-out and money-in split across two columns.
+
+    The most common credit-card export shape. Tolerates the usual header
+    variations: the date may be ``Transaction Date``, ``Posted Date`` or plain
+    ``Date``, and a ``Category`` column is used when present.
+
+    An export may carry several card numbers for one account (a primary plus an
+    authorized user). Every row is imported — never filter by card number.
+    """
     out = []
     for row in csv.DictReader(io.StringIO(_read_text(path))):
-        posted = _date(row.get("Date"))
+        posted = _date(
+            row.get("Transaction Date") or row.get("Posted Date") or row.get("Date")
+        )
         if not posted:
             continue
         debit, credit = _amt(row.get("Debit")), _amt(row.get("Credit"))
@@ -125,12 +138,16 @@ def parse_citi(path: str) -> list[dict]:
         else:
             continue
         out.append({"posted": posted, "description": _clean(row.get("Description")),
-                    "amount": round(amount, 2)})
+                    "amount": round(amount, 2),
+                    "source_category": (row.get("Category") or "").strip() or None})
     return out
 
 
-def parse_chase(path: str) -> list[dict]:
-    """Amount is already signed (negative = purchase)."""
+def parse_signed_amount_csv(path: str) -> list[dict]:
+    """CSV with a single ``Amount`` column that is already signed.
+
+    Negative already means money out, so amounts pass through untouched.
+    """
     out = []
     for row in csv.DictReader(io.StringIO(_read_text(path))):
         posted = _date(row.get("Transaction Date") or row.get("Post Date"))
@@ -143,31 +160,7 @@ def parse_chase(path: str) -> list[dict]:
     return out
 
 
-def parse_capital_one(path: str) -> list[dict]:
-    """Debit/Credit split.
-
-    An export can carry more than one card number for a single account (a
-    primary plus an authorized user). Both are imported, never filtered.
-    """
-    out = []
-    for row in csv.DictReader(io.StringIO(_read_text(path))):
-        posted = _date(row.get("Transaction Date") or row.get("Posted Date"))
-        if not posted:
-            continue
-        debit, credit = _amt(row.get("Debit")), _amt(row.get("Credit"))
-        if debit:
-            amount = -abs(debit)
-        elif credit:
-            amount = abs(credit)
-        else:
-            continue
-        out.append({"posted": posted, "description": _clean(row.get("Description")),
-                    "amount": round(amount, 2),
-                    "source_category": (row.get("Category") or "").strip() or None})
-    return out
-
-
-def parse_bofa_card_dir(path: str) -> list[dict]:
+def parse_monthly_csv_dir(path: str) -> list[dict]:
     """Nine monthly files plus a live ``currentTransaction`` feed that overlaps
     the newest month.  All are concatenated; the reference number makes true
     duplicates identifiable, so they are collapsed here before de-dup."""
@@ -189,8 +182,12 @@ def parse_bofa_card_dir(path: str) -> list[dict]:
     return list(rows.values())
 
 
-def parse_amex_xlsx(path: str) -> list[dict]:
-    """Amex exports a purchase as a POSITIVE number — negate to match the DB."""
+def parse_positive_charge_xlsx(path: str) -> list[dict]:
+    """XLSX export where a purchase is a POSITIVE number — negated to match the DB.
+
+    The header sits a few rows below a title/account block, so it is located by
+    searching for the Date/Description/Amount row rather than assumed.
+    """
     import openpyxl
 
     wb = openpyxl.load_workbook(path, data_only=True)
@@ -242,8 +239,15 @@ _PP_LINE = re.compile(
 )
 
 # Lines that end a transaction's description block rather than continuing it.
+#
+# The funding-source block is matched generically — a bank's legal name followed
+# by its account line — rather than by naming one issuer. Hardcoding a single
+# bank means a PayPal account funded by any other one silently gets that bank's
+# name appended to whatever merchant it happens to follow.
 _PP_STOP = re.compile(
-    r"^(ID:|Ref ID:|Page\b|USD\b|BANK OF AMERICA|Checking x-|PayPal Balance|"
+    r"^(ID:|Ref ID:|Page\b|USD\b|PayPal Balance|"
+    r"[A-Z][A-Z .,&'-]{3,},? ?N\.A\.|BANK OF |[A-Z][A-Z .&'-]{3,} BANK\b|"
+    r"(Checking|Savings|Credit Card|Debit Card) x-|"
     r"ACCOUNT STATEMENTS|Statement Period|DATE DESCRIPTION|ACCOUNT ACTIVITY|"
     r"PAYPAL|\*|Contact us|no later than|The difference)",
     re.IGNORECASE,
@@ -348,14 +352,13 @@ def parse_paypal_pdfs(path: str) -> list[dict]:
 # accounts.local.json is shared by every importer, so it also holds entries
 # whose parser lives elsewhere. Skip those rather than erroring — but still
 # reject a genuinely unknown name so a typo doesn't silently drop an account.
-_OTHER_MODULE_PARSERS = {"parse_bofa_checking"}
+_OTHER_MODULE_PARSERS = {"parse_running_balance_csv"}
 
 PARSERS = {
-    "parse_citi": parse_citi,
-    "parse_chase": parse_chase,
-    "parse_capital_one": parse_capital_one,
-    "parse_bofa_card_dir": parse_bofa_card_dir,
-    "parse_amex_xlsx": parse_amex_xlsx,
+    "parse_debit_credit_csv": parse_debit_credit_csv,
+    "parse_signed_amount_csv": parse_signed_amount_csv,
+    "parse_monthly_csv_dir": parse_monthly_csv_dir,
+    "parse_positive_charge_xlsx": parse_positive_charge_xlsx,
     "parse_paypal_pdfs": parse_paypal_pdfs,
 }
 

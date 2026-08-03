@@ -108,7 +108,7 @@ gap. Two importers, both **idempotent** — re-running never duplicates.
 
 ```bash
 python -m app.importers.statements <statements-dir> --dry-run
-python -m app.importers.bofa_checking <checking-export.csv> --dry-run
+python -m app.importers.running_balance <checking-export.csv> --dry-run
 ```
 
 Copy `accounts.example.json` to `accounts.local.json` and fill in each account's
@@ -117,19 +117,20 @@ SimpleFIN id, its name, and the export filename.
 Banks don't agree on much, so parsers are organized by **export shape** rather
 than by brand. Find the row matching what your download looks like:
 
-| Parser | Export shape | Handles |
+| Parser | Your export looks like | Notes |
 |---|---|---|
-| `parse_citi` | CSV with separate `Debit` / `Credit` columns | the common two-column layout |
-| `parse_capital_one` | CSV, `Debit`/`Credit` + a card-number column | multiple cards on one account — all are kept, never filtered |
-| `parse_chase` | CSV with one pre-signed `Amount` column | negative already means money out |
-| `parse_bofa_card_dir` | a *directory* of monthly CSVs | plus a live pending feed that overlaps the newest month; de-duped on reference number |
-| `parse_bofa_checking` | CSV with a running-balance column | lets you verify the import by chaining balances — see below |
-| `parse_amex_xlsx` | XLSX, header a few rows down | **a purchase is a positive number**; the parser negates it |
-| `parse_paypal_pdfs` | a directory of monthly PDF statements | each file contains two statements; only the account-level one is read |
+| `parse_debit_credit_csv` | CSV with separate `Debit` / `Credit` columns | the most common card shape; tolerates `Transaction Date` / `Posted Date` / `Date`, and reads a `Category` column when present |
+| `parse_signed_amount_csv` | CSV with one already-signed `Amount` column | negative already means money out |
+| `parse_monthly_csv_dir` | a *directory* of monthly CSVs | plus a pending feed that overlaps the newest month; de-duped on reference number |
+| `parse_running_balance_csv` | CSV carrying a running-balance column | lives in `running_balance.py` — that column makes the import verifiable, see below |
+| `parse_positive_charge_xlsx` | XLSX, header a few rows down | **a purchase is a positive number**; the parser negates it |
+| `parse_paypal_pdfs` | a directory of monthly PayPal PDFs | each file holds two statements; only the account-level one is read |
 
-These are the shapes implemented so far, named after the institution each was
-first written against. Most exports from other banks match one of them already —
-try the closest shape before writing a new parser, and see
+Multiple cards on one account (a primary plus an authorized user) are all
+imported — never filter by card number.
+
+Most bank exports match one of these already. Try the closest shape first — a
+new institution usually needs a config entry, not a new parser. See
 [CONTRIBUTING.md](CONTRIBUTING.md) if none fit.
 
 **Always `--dry-run` first.** It reports, per account, how many rows already
@@ -168,7 +169,7 @@ app/
   categorize.py      canonical categories + source-category mapping
   merchant_rules.py  user-created rename/recategorize rules
   simplefin.py       SimpleFIN client
-  importers/         xlsx history, statement CSV/XLSX/PDF, wallet CSV
+  importers/         statement parsers by export shape, xlsx history, wallet CSV
   static/            vanilla JS frontend (no build step)
 tests/
 ```

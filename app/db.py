@@ -184,15 +184,20 @@ def _migrate(conn: sqlite3.Connection) -> None:
             "UPDATE transactions SET base_category = category WHERE base_category IS NULL"
         )
 
-    # One-time account type fixes (idempotent: WHERE clause guards each run).
-    conn.execute(
-        "UPDATE accounts SET type='investment' "
-        "WHERE org LIKE 'UBS One Source%' AND type != 'investment'"
-    )
+    # Aggregators sometimes report an account under the wrong type. These are
+    # general corrections, not per-institution hacks, and each is guarded so it
+    # is a no-op once applied.
+    #
+    # A savings account is never a line of credit.
     conn.execute(
         "UPDATE accounts SET type='depository' "
-        "WHERE name LIKE 'High Yield Savings%' "
-        "  AND org='American Express' AND type != 'depository'"
+        "WHERE (name LIKE '%Savings%' OR name LIKE '%Money Market%') "
+        "  AND type = 'credit'"
+    )
+    # An account holding shares is an investment account, not cash.
+    conn.execute(
+        "UPDATE accounts SET type='investment' "
+        "WHERE name LIKE '%Shares%' AND type = 'depository'"
     )
 
 

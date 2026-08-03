@@ -1,37 +1,32 @@
-"""Importer for Bank of America "Adv Plus Banking" checking CSV exports.
+"""Importer for a checking-account CSV that carries a running balance.
 
-Why this exists
----------------
-The DB had a hard gap from 2026-01-01 to 2026-03-19: the ``csv2025`` annual
-import stops at 2025-12-31, and SimpleFIN was only connected on 2026-06-17 with
-a ~90-day lookback (earliest live row 2026-03-20).  Nothing ever filled the
-eleven weeks in between.  A BofA statement export covers that window, but it
-also overlaps the two existing sources on either side, so a naive import would
-duplicate months of history.
+Separate from ``statements.py`` because that running-balance column makes this
+shape *verifiable*: chain the statement's opening balance through every
+transaction and you must land exactly on its closing balance. That single check
+catches both missed rows and duplicated ones, which is worth having whenever an
+export offers it.
 
 De-dup model
 ------------
-BofA statement descriptions do not match what is already in the DB:
+Statement descriptions rarely match what is already in the database. An earlier
+annual import may have masked account numbers (``CO ID:XXXXX90310``) or carried
+hand-written annotations, and a bank feed uses its own posted date, which can lag
+the statement date by several days.
 
-* ``csv2025`` rows (Dec 2025) were **masked** by the 2025 consolidation script
-  (``CO ID:XXXXX90310``) and may carry hand-written annotations.
-* ``simplefin`` rows (2026-03-20 onward) use SimpleFIN's own posted date, which
-  can lag the statement date by a few days.
+So matching is on ``(amount, date-window)`` against every name the account has
+used, never on description. Each candidate is consumed at most once, so N
+identical repeat charges need N statement rows to be covered.
 
-So matching is on ``(amount, date-window)`` against every historical spelling of
-this one account (``BofA Checking`` / ``Adv Plus Banking`` /
-its current name), never on description.  Each DB candidate is
-consumed at most once so N identical repeat charges need N CSV rows to cover.
+Run with ``--dry-run`` first; it reports match counts split by window, which is
+the signal that the matcher is behaving.
 
-Run with ``--dry-run`` first; it reports match counts split by overlap window,
-which is the signal that the matcher is behaving (the Dec and Mar-Jul windows
-should come out ~fully matched).
+Which account this writes to lives in the gitignored ``accounts.local.json``
+under a key whose ``parser`` is ``parse_running_balance_csv``.
 
 Usage
 -----
-    python -m app.importers.bofa_checking <path-to-csv> [--dry-run]
+    python -m app.importers.running_balance <path-to-csv> [--dry-run]
 """
-
 from __future__ import annotations
 
 import argparse
@@ -53,7 +48,7 @@ _REGISTRY_PATH = os.path.join(
 )
 
 
-def _load_spec(key: str = "bofachecking") -> dict:
+def _load_spec(key: str = "checking") -> dict:
     """Read this importer's account entry from the local registry."""
     if os.path.exists(_REGISTRY_PATH):
         with open(_REGISTRY_PATH, encoding="utf-8") as fh:
@@ -113,7 +108,7 @@ def _parse_amount(raw: str) -> float | None:
 
 
 def parse_csv(text: str) -> list[dict]:
-    """Return normalized rows from a BofA checking export.
+    """Return normalized rows from a running-balance checking export.
 
     The file starts with a five-line summary block (beginning/ending balance,
     total credits/debits) before the real ``Date,Description,Amount,Running

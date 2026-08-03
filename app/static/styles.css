@@ -278,7 +278,9 @@ body {
   background: var(--red-bg);
   border: 1px solid var(--red);
   border-radius: var(--radius);
-  color: var(--red);
+  /* --red (#DC2626) on --red-bg (#FEE2E2) is only 3.95:1 — below AA. The
+     darker shade gets to 6.8:1 while reading as the same alert colour. */
+  color: #991B1B;
   font-weight: 600;
   font-size: .92rem;
   padding: .75rem 1.1rem;

@@ -69,7 +69,7 @@ app/
   rules.py           generic regex ruleset  (rules_local.py = personal, gitignored)
   merchant_rules.py  user-created rename/recategorize rules
   simplefin.py       SimpleFIN client
-  importers/         statement CSV/XLSX/PDF, xlsx history, wallet CSV
+  importers/         statement parsers by export shape, xlsx history, wallet CSV
   static/            vanilla JS, no build step
 tests/
 docs/superpowers/specs/   design docs
@@ -86,7 +86,7 @@ the year-end totals don't add up. Every one of these has actually happened.
 The database stores **negative = money out** for every account. The exports
 disagree: some arrive pre-signed, some split `Debit`/`Credit` into two columns,
 and **at least one reports a purchase as a positive number** (see
-`parse_amex_xlsx`, which negates). Flip one and a year of spending silently
+`parse_positive_charge_xlsx`, which negates). Flip one and a year of spending silently
 becomes income. Always assert the sign of *both* a purchase and a payment in
 tests, and verify against existing data before trusting a new format.
 
@@ -173,13 +173,16 @@ import.
 
 ## 6. Adding a statement parser
 
-1. Write `parse_<shape>(path) -> list[dict]` in `app/importers/statements.py`
-   returning `{posted, description, amount}` with **negative = money out**, plus
-   `source_category` when the export has a category column.
-2. Register it in the `PARSERS` dict.
-3. Add a **synthetic** fixture under `tests/fixtures/` and assert the sign of
+1. **First check whether an existing shape already fits** — most exports do, and
+   then it is a config entry in `accounts.local.json`, not new code.
+2. If not, write `parse_<shape>(path) -> list[dict]` in
+   `app/importers/statements.py` returning `{posted, description, amount}` with
+   **negative = money out**, plus `source_category` when the export has a
+   category column. Name it after the *shape*, not the institution.
+3. Register it in the `PARSERS` dict.
+4. Add a **synthetic** fixture under `tests/fixtures/` and assert the sign of
    both a purchase and a payment.
-4. Add the shape to the README table.
+5. Add the shape to the README table.
 
 Verify with `--dry-run` first. Where the statement overlaps data already in the
 database, a near-100% match rate is the evidence the parser and its sign are
