@@ -112,17 +112,25 @@ python -m app.importers.bofa_checking <checking-export.csv> --dry-run
 ```
 
 Copy `accounts.example.json` to `accounts.local.json` and fill in each account's
-SimpleFIN id, its name, and the export filename. Supported formats:
+SimpleFIN id, its name, and the export filename.
 
-| Institution | Format | Notes |
+Banks don't agree on much, so parsers are organized by **export shape** rather
+than by brand. Find the row matching what your download looks like:
+
+| Parser | Export shape | Handles |
 |---|---|---|
-| Citi | CSV | `Debit`/`Credit` columns |
-| Chase | CSV | pre-signed `Amount` |
-| Capital One | CSV | `Debit`/`Credit`; multiple cards per account are all kept |
-| Bank of America (credit) | CSV | one file per month plus a live pending feed |
-| Bank of America (checking) | CSV | carries a running balance — see below |
-| American Express | XLSX | **a purchase is a positive number**; the parser negates it |
-| PayPal | PDF | monthly statements |
+| `parse_citi` | CSV with separate `Debit` / `Credit` columns | the common two-column layout |
+| `parse_capital_one` | CSV, `Debit`/`Credit` + a card-number column | multiple cards on one account — all are kept, never filtered |
+| `parse_chase` | CSV with one pre-signed `Amount` column | negative already means money out |
+| `parse_bofa_card_dir` | a *directory* of monthly CSVs | plus a live pending feed that overlaps the newest month; de-duped on reference number |
+| `parse_bofa_checking` | CSV with a running-balance column | lets you verify the import by chaining balances — see below |
+| `parse_amex_xlsx` | XLSX, header a few rows down | **a purchase is a positive number**; the parser negates it |
+| `parse_paypal_pdfs` | a directory of monthly PDF statements | each file contains two statements; only the account-level one is read |
+
+These are the shapes implemented so far, named after the institution each was
+first written against. Most exports from other banks match one of them already —
+try the closest shape before writing a new parser, and see
+[CONTRIBUTING.md](CONTRIBUTING.md) if none fit.
 
 **Always `--dry-run` first.** It reports, per account, how many rows already
 exist and how many are new — split out by date window. Where the statement
@@ -168,6 +176,20 @@ tests/
 Backend changes need a server restart — the app runs with `reload=False`.
 Frontend changes just need a browser refresh.
 
+## Working on this with an AI assistant
+
+[`AGENTS.md`](AGENTS.md) is a briefing for coding agents: how to run and test,
+the invariants that break *silently* if you get them wrong, and a hard rule about
+never touching the local financial data. Claude Code, Codex, Cursor and others
+read it automatically; `CLAUDE.md` points at the same file.
+
+If you use an assistant here, read `AGENTS.md` yourself too — the "silent
+failure" list is the accumulated set of things that have actually gone wrong.
+
+The running app also serves an OpenAPI spec at `/openapi.json` and interactive
+docs at `/docs`, which is usually the fastest way to give an agent an accurate
+picture of the API.
+
 ## Contributing
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -175,6 +197,13 @@ Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 **Never commit real financial data.** The `.gitignore` blocks the usual paths,
 but check `git status` before committing, and scrub any transaction descriptions
 out of issue reports and test fixtures.
+
+## Credits
+
+Built by [Nate Sharpe](https://github.com/nssharpe) with
+[Claude Code](https://claude.com/claude-code). Much of the implementation was
+written by Claude (Opus 5) in collaboration — the commit history carries
+`Co-Authored-By` trailers showing which changes.
 
 ## License
 
