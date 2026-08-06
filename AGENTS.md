@@ -72,6 +72,7 @@ app/
   importers/         statement parsers by export shape, xlsx history, wallet CSV
   static/            vanilla JS, no build step
 tests/
+tools/               one-off dev scripts (taskbar icon and shortcut)
 docs/superpowers/specs/   design docs
 ```
 

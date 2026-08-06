@@ -57,6 +57,45 @@ python -m app.main
 Then open <http://127.0.0.1:8765>. On Windows you can double-click `run.bat`
 instead, which installs dependencies and opens the browser for you.
 
+`run.bat` checks whether the dashboard is already answering on port 8765 before
+it starts anything. If it is, it just opens the browser and exits. Without that
+check a second launch starts a second server, and Windows lets both bind the
+same port without complaining — you get two of them and no error message.
+
+### Putting it on the Windows taskbar
+
+If you use this daily, a taskbar button beats hunting for the folder:
+
+```bash
+python tools/make_icon.py
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\make_shortcut.ps1
+```
+
+The first renders `app/static/favicon.svg` into a multi-size
+`app/static/finance-dashboard.ico` (needs Pillow). The second creates
+`Finance Dashboard.lnk` in the project root.
+
+Then **drag the `.lnk` onto your taskbar**. On Windows 11 the right-click menu
+offers only "Pin to Start" — dragging is the way to get a taskbar button.
+
+Two details in `tools/make_shortcut.ps1` that look odd but are deliberate:
+
+- The shortcut targets `cmd.exe` with `run.bat` as an argument rather than
+  `run.bat` directly. Windows wants an executable target for a taskbar button;
+  point one straight at a `.bat` and it tends to land in some other app's jump
+  list instead of getting a button of its own.
+- It opens minimized. The server console still needs to exist — that's where
+  `Ctrl+C` stops it — but it doesn't need to be in your face.
+
+Expect ~3 seconds between the click and the browser appearing; `run.bat` waits
+for the server to bind before opening it. The console shows up as a separate
+taskbar button rather than merging under the pinned icon, because grouping
+follows the running process, not the shortcut. Both are cosmetic.
+
+The generated `.lnk` is gitignored — it stores absolute paths, so committing one
+would publish your username and folder layout. The two scripts derive their
+paths from their own location and are safe to commit.
+
 ### Connecting your accounts
 
 1. Create a SimpleFIN Bridge account and connect your banks there.
@@ -172,6 +211,7 @@ app/
   importers/         statement parsers by export shape, xlsx history, wallet CSV
   static/            vanilla JS frontend (no build step)
 tests/
+tools/               one-off dev scripts (taskbar icon and shortcut)
 ```
 
 Backend changes need a server restart — the app runs with `reload=False`.

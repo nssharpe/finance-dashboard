@@ -19,6 +19,10 @@ accounts.local.json
 # anything personal (local merchants, names, property identifiers) lives here.
 app/rules_local.py
 
+# Desktop/taskbar shortcuts. A .lnk stores absolute paths, so it leaks your
+# username and folder layout. Regenerate yours with tools/make_shortcut.ps1.
+*.lnk
+
 # Raw statement downloads and the historical workbook.
 *.xlsx
 *.xls
